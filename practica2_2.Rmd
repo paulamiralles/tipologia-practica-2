@@ -1,0 +1,138 @@
+---
+title: "Practica 2"
+author: "Paula Miralles i Marc Clupés"
+date: "2023-01-02"
+output: html_document
+---
+
+# Dataset
+
+```{r}
+library(readr)
+dataset <- read.csv("heart.csv", dec=".")
+head(dataset)
+```
+
+# Integració i selecció de les dades
+
+```{r}
+eliminar <- c("oldpeak", "slp", "caa", "thall")
+dataset_seleccio<- dataset[,!(names(dataset)%in% eliminar)]
+head(dataset_seleccio)
+```
+
+
+
+# Neteja de les dades.
+## Les dades contenen zeros o elements buits?
+
+```{r}
+#Contenen elements nuls
+sapply(dataset_seleccio, function(x) any(is.na(x)))
+```
+
+```{r}
+#Contenen zeros
+variables_sense_zeros <- c("trtbps", "chol", "thalachh")
+sapply(dataset_seleccio, function(x) any(x == 0))[(names(dataset_seleccio)%in% variables_sense_zeros)]
+```
+
+## Identifica i gestiona els valors extrems. 
+
+Recordem que hem determinat que les variables no categòriques són: age, trtbps, chol, thalachh
+```{r}
+age.bp<-boxplot(dataset_seleccio$age ,main="age")
+trtbps.bp<-boxplot(dataset_seleccio$trtbps ,main="trtbps")
+chol.bp<-boxplot(dataset_seleccio$chol ,main="chol")
+thalachh.bp<-boxplot(dataset_seleccio$thalachh ,main="thalachh")
+```
+I per a cada una d'aquestes, els valors extrems són: 
+```{r}
+print("Els valors extrems per a la variable age son: ") 
+print(age.bp$out)
+print("Els valors extrems per a la variable trtbps son: ")
+print(trtbps.bp$out)
+print("Els valors extrems per a la variable chol son: ")
+print(chol.bp$out)
+print("Els valors extrems per a la variable thalachh son: ")
+print(thalachh.bp$out)
+```
+#Comprovació de la normalitat i homogeneïtat de la variància.
+
+```{r}
+
+print("Test Saphiro per a la variable age son: ") 
+shapiro.test(dataset_seleccio$age)
+print("Test Saphiro per a la variable trtbps son: ")
+shapiro.test(dataset_seleccio$trtbps)
+print("Test Saphiro per a la variable chol son: ")
+shapiro.test(dataset_seleccio$chol)
+print("Test Saphiro per a la variable thalachh: ")
+shapiro.test(dataset_seleccio$thalachh)
+```
+Veiem que cap d'aquests camps compta amb una distribució normal, ja que la p-value per a tots ells
+és menor de 0.05
+
+Per a la homogeneïtat de la variància:
+
+```{r}
+
+print("Test Fligner per a la variables age i trtbps: ") 
+fligner.test(age ~ trtbps,  data = dataset_seleccio)
+print("Test Fligner per a la variables age i chol: ") 
+fligner.test(age ~ chol,  data = dataset_seleccio)
+print("Test Fligner per a la variables age i thalachh: ") 
+fligner.test(age ~ thalachh,  data = dataset_seleccio)
+print("Test Fligner per a la variables age i trtbps: ") 
+fligner.test(age ~ trtbps,  data = dataset_seleccio)
+```
+
+## Preparació de les dades per al model
+
+```{r}
+dataset_seleccio[ , c(1, 2, 3, 4, 5, 6, 7 , 8, 9 ,10)]   
+set.seed(1)
+df3 <- dataset_seleccio[sample(1:nrow(dataset_seleccio)),]
+Y <- df3[,10] 
+X <- df3[,1:9] 
+X
+Y
+```
+
+
+```{r}
+split_prop <- 3
+indexes = sample(1:nrow(dataset_seleccio), size=floor(((split_prop-1)/split_prop)*nrow(dataset_seleccio)))
+trainX<-X[indexes,]
+trainy<-Y[indexes]
+testX<-X[-indexes,]
+testy<-Y[-indexes]
+```
+
+
+
+```{r}
+summary(trainX);
+summary(trainy)
+summary(testX)
+summary(testy)
+```
+
+## Creació del model, qualitat del model i extracció de regles
+  
+```{r}
+install.packages("inum")
+trainy = as.factor(trainy)
+model <- C50::C5.0(trainX, trainy,rules=TRUE )
+summary(model)
+```
+
+```{r}
+predict_model <- predict( model, testX, type="class" )
+print(sprintf("La precisió del model és: %.4f %%",100*sum(predict_model == testy) / length(predict_model)))
+
+```
+
+```{r}
+write.csv(dataset_seleccio,"heart_clean.csv.", row.names = FALSE)
+```
